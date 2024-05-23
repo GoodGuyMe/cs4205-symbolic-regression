@@ -1,0 +1,7 @@
+.numba
+__pycache__
+results
+preprocessed
+plots
+data/tmp
+generations.csv
