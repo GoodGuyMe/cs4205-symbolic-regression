@@ -1,0 +1,17 @@
+name: cs4205-project
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - numba
+  - pandas
+  - pygmo
+  - sympy
+  - scikit-learn
+  - matplotlib
+  - seaborn
+  - tqdm
+  - pip
+  - pip:
+    - duckdb
