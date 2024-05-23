@@ -5,3 +5,4 @@ preprocessed
 plots
 data/tmp
 generations.csv
+/preprocessed.parquet
