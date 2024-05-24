@@ -2,7 +2,6 @@ import os
 import sys
 import importlib
 import pathlib
-import hashlib
 
 import numpy as np
 import numba as nb
@@ -39,8 +38,8 @@ def get_fitness_and_parser(
     
     # 2. peak python metaprogramming
     os.makedirs(CACHE_DIR, exist_ok=True)
-    # Windows apparently does not like characters like * or + in file paths, so we use a hash...
-    key = hashlib.sha256(f"{max_expression_size}_{num_constants}_{max_instances}_{num_inputs}_{'_'.join(operators)}".encode("ascii")).hexdigest()
+    key = (f"{max_expression_size}_{num_constants}_{max_instances}_{num_inputs}_{'_'.join(operators)}"
+           .replace("/", "／").replace("*", "x"))
     path = (CACHE_DIR / f"{key}.py")
 
     preamble = "\n".join([
