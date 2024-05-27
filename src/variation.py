@@ -31,13 +31,15 @@ def get_variation_fn(
             while r0 == i:                          r0 = rng.integers(0, population_size)
             while r1 == i or r1 == r0:              r1 = rng.integers(0, population_size)
             while r2 == i or r2 == r0 or r2 == r1:  r2 = rng.integers(0, population_size)
+            # randomly select one index for which mutation takes place for sure
             j_rand: np.int32  = rng.integers(0, max_expression_size + num_constants)
 
             # construct trial population
             for j in range(structures.shape[1]):
+                # perform crossover on selected index j_rand with proba 1 or with proba p_crossover on other indices
                 if rng.random() < p_crossover or j == j_rand:
                     trial_structures[i, j] = structures[r0, j] + scaling_factor * (structures[r1, j] - structures[r2, j])
-                    # repair as per Eq 8 (https://doi.org/10.1145/1389095.1389331)
+                    # repair as per Eq 8 (https://doi.org/10.1145/1389095.1389331) to arive at an integer that corresponds to an operator or variable
                     v_abs = np.abs(trial_structures[i, j])
                     v_floored_abs = np.floor(v_abs)
                     trial_structures[i, j] = (v_floored_abs % library_size) + (v_abs - v_floored_abs)
@@ -48,7 +50,9 @@ def get_variation_fn(
                 j_rand -= max_expression_size
             
             for j in range(constants.shape[1]):
+                # perform crossover on selected index j_rand with proba 1 or with proba p_crossover on other indices
                 if rng.random() < p_crossover or j == j_rand:
+                    # as these are constants, no repair is required
                     trial_constants[i, j] = constants[r0, j] + scaling_factor * (constants[r1, j] - constants[r2, j])
                 else:
                     trial_constants[i, j] = constants[i, j]

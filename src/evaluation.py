@@ -141,6 +141,7 @@ def evaluate_individual(structure, constants, fitness, X, y, linear_scaling):
                 eval_buffer[:X.shape[0], 1] = 1
                 w, b = np.linalg.lstsq(eval_buffer[:X.shape[0], :2], y)[0]
                 eval_buffer[:X.shape[0], 0] = w * eval_buffer[:X.shape[0], 0] + b
+            # compute the MSE as fitness
             fitness[0] = np.mean((eval_buffer[:X.shape[0], 0] - y) ** 2)
         else:
             fitness[0] = np.inf
@@ -185,6 +186,8 @@ def evaluate_population(structures, constants, fitness, X, y, linear_scaling):
     evaluate_population = module.evaluate_population
 
     # 5. representation -> sympy
+
+    # initialize an empty sym_buffer of max size
     sym_buffer = ["" for _ in range(max_expression_size)]
     def to_sympy(structure: np.ndarray, constants: np.ndarray, X: np.ndarray, y: np.ndarray, linear_scaling: bool = False, simplify: bool = False, precision: int | None = None) -> str | None:
         """Returns a `sympy` compatible model of the encoded expression if it is valid, else `None`.
@@ -214,24 +217,31 @@ def evaluate_population(structures, constants, fitness, X, y, linear_scaling):
         j = 0
         while (j == 0 or len(op_stack) > 0) and j < max_expression_size:
             if len(op_stack) > 0 and op_stack[-1][2] <= 0:
+                # take top operator off the stack as all its arguments have been processed
                 buf_idx, op, _ = op_stack.pop()
                 _arity = arity[op]
                 if op < num_operators:
+                    # function operator, format using arguments from the sym_buffer
                     sym_buffer[buf_idx] = fmt[op] \
                         .format(*[sym_buffer[arg_stack[ai - _arity]] for ai in range(_arity)])
                 else:
                     op -= num_operators
 
                     if op < num_inputs:
+                        # input variable, store as terminal in sym_buffer
                         sym_buffer[buf_idx] = f"x{op}"
                     else:
+                        # constants, retrieve value from constants list, store as terminal in sym_buffer
                         value = constants[op - num_inputs]
                         sym_buffer[buf_idx] = str(value) if precision is None or simplify else f"{value:.{precision}g}"
+                # reduce the arity of the operator as one of its arguments has been processed
                 arg_stack = arg_stack[:len(arg_stack) - _arity]
                 if len(op_stack) > 0:
                     op_stack[-1][2] -= 1
             else:
+                # add new operator to the stack
                 op = int(abs(structure[j]))
+                # store the position of the operator in the structure, the operator and its arity
                 op_stack.append([j, op, arity[op]])
                 arg_stack.append(j)
                 j += 1
@@ -240,14 +250,18 @@ def evaluate_population(structures, constants, fitness, X, y, linear_scaling):
         
         if linear_scaling:
             eval_buffer = np.empty(shape=(max_instances, max_expression_size), dtype=np.float32)
+            # compute the final output of the expression and store in eval_buffer 
             compute_output(structure, constants, eval_buffer, X)
             eval_buffer[:X.shape[0], 1] = 1
+            # determine w and b that minimize MSE 
             w, b = np.linalg.lstsq(eval_buffer[:X.shape[0], :2], y, rcond=None)[0]
+            # store the scaled version in sym_buffer
             sym_buffer[0] = f"{b} + {w} * ({sym_buffer[0]})"
 
         if not simplify:
             return sym_buffer[0]
 
+        # simplify the expression using the sym package
         e = sym.simplify(sym.sympify(sym_buffer[0]), ratio=1.0)
         if precision is None:
             return str(e)

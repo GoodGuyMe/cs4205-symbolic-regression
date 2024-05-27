@@ -19,11 +19,13 @@ def select_single_objective(
     trial_fitness
 ):
     for i in range(structures.shape[0]):
-        # replace solutions dominated by the trial solution
+        # replace solutions dominated by the trial solution, else leave the same
         if trial_fitness[i, 0] <= fitness[i, 0]:
             structures[i,:] = trial_structures[i,:]
             constants[i,:]  = trial_constants[i,:]
             fitness[i, :]   = trial_fitness[i, :]
+
+# all methods below are only used in the multi-objective scenario
 
 @nb.jit((
     nty.Array(nty.float32, 1, "C"),

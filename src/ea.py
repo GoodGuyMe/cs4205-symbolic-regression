@@ -63,6 +63,7 @@ def DEPGEP(
         log_meta = {}
     log_meta["seed"] = seed if seed is not None else time.time_ns() % (2 ** 31 - 1)
 
+    # get precompiled functions
     evaluate_individual, evaluate_population, to_sympy, perform_variation = get_compiled_functions(
         operators=operators,
         population_size=population_size,
@@ -87,7 +88,7 @@ def DEPGEP(
     if log_file is None and not quiet:
         print(f"Using seed {log_meta['seed']}")
 
-    # initialization
+    # initialization, with random seeds
     structures = rng.random((population_size, max_expression_size), dtype=np.float32) * (len(operators) + X.shape[1] + num_constants)
     constants = rng.random((population_size, num_constants), dtype=np.float32)
     
@@ -100,6 +101,7 @@ def DEPGEP(
 
     fitness = np.empty((population_size, 2), dtype=np.float32)
 
+    # evaluating the population
     evaluate_population(structures, constants, fitness, X, y, linear_scaling)
     evaluations = population_size
 
@@ -131,7 +133,9 @@ def DEPGEP(
             logger.log(generation, evaluations, time_seconds, time_seconds_raw, structures, constants, fitness)
 
         generation_start = time.time()
+        # perform variation
         evaluations += perform_variation(structures, constants, fitness, trial_structures, trial_constants, trial_fitness, X, y, rng)
+        # perform selection
         perform_selection(structures, constants, fitness, trial_structures, trial_constants, trial_fitness)
         generation_end = time.time()
 
@@ -155,6 +159,7 @@ def DEPGEP(
         print(f"Achieved {evaluations / time_seconds:.2f}evaluations/second")
 
     if return_value == "mse_elite":
+        # return the single elitist solution with the best MSE
         best_idx = fitness[:, 0].argmin()
         best_fitness = fitness[best_idx]
         expression = to_sympy(structures[best_idx], constants[best_idx], X, y, linear_scaling, simplify=False, precision=3)
@@ -162,6 +167,7 @@ def DEPGEP(
             print(f"{sym.simplify(expression)} @ (MSE: {best_fitness[0]}, Size: {best_fitness[1]})")
         return pd.DataFrame([dict(expression=expression, mse_train=best_fitness[0], size=int(best_fitness[1]))])
     elif return_value == "non_dominated":
+        # return the non_dominated (pareto) front
         ndf_indices = pg.non_dominated_front_2d(fitness)
         _front = [dict(
             expression = to_sympy(structures[idx], constants[idx], X, y, linear_scaling, simplify=False, precision=3),
