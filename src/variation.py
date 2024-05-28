@@ -11,7 +11,9 @@ def get_variation_fn(
     scaling_factor: float,
     linear_scaling: bool,
     evaluate_individual: callable,
-    evaluate_population: callable
+    evaluate_population: callable,
+    learning_rate: float = 0.01,
+    epsilon: float = 1e-5
 ):
     @nb.jit((
         nty.Array(nty.float32, 2, "C"),
@@ -52,8 +54,26 @@ def get_variation_fn(
                     trial_constants[i, j] = constants[r0, j] + scaling_factor * (constants[r1, j] - constants[r2, j])
                 else:
                     trial_constants[i, j] = constants[i, j]
-
+        
+        # Evaluate trial population
         evaluate_population(trial_structures, trial_constants, trial_fitness, X, y, linear_scaling)
+        
+        # Perform gradient-based local search
+        for i in range(population_size):
+            # Compute gradients using finite differences
+            gradients = np.zeros_like(trial_structures[i])
+            for j in range(trial_structures.shape[1]):
+                perturbed = np.copy(trial_structures[i])
+                perturbed[j] += epsilon
+                perturbed_fitness = evaluate_individual(perturbed, trial_constants[i], X, y, linear_scaling)
+                gradients[j] = (perturbed_fitness - trial_fitness[i]) / epsilon
+            
+            # Update trial structures using gradient descent
+            trial_structures[i] -= learning_rate * gradients
+
+            # Re-evaluate fitness after gradient update
+            trial_fitness[i] = evaluate_individual(trial_structures[i], trial_constants[i], X, y, linear_scaling)
+        
         return population_size
-    
+
     return perform_variation
