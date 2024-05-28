@@ -63,16 +63,20 @@ def get_variation_fn(
             # Compute gradients using finite differences
             gradients = np.zeros_like(trial_structures[i])
             for j in range(trial_structures.shape[1]):
-                perturbed = np.copy(trial_structures[i])
-                perturbed[j] += epsilon
-                perturbed_fitness = evaluate_individual(perturbed, trial_constants[i], X, y, linear_scaling)
-                gradients[j] = (perturbed_fitness - trial_fitness[i]) / epsilon
-            
+                perturbed_structures = np.copy(trial_structures[i])
+                perturbed_fitness = np.copy(trial_fitness[i])
+                perturbed_constants = np.copy(trial_constants[i])
+                perturbed_structures[j] += epsilon
+                # Evaluate the perturbed individual
+                evaluate_individual(perturbed_structures, perturbed_constants, perturbed_fitness, X, y, linear_scaling)
+                for k in range(trial_fitness.shape[1]):  # Loop over each fitness component
+                    gradients[j] += (perturbed_fitness[k] - trial_fitness[i, k]) / epsilon
+
             # Update trial structures using gradient descent
             trial_structures[i] -= learning_rate * gradients
 
             # Re-evaluate fitness after gradient update
-            trial_fitness[i] = evaluate_individual(trial_structures[i], trial_constants[i], X, y, linear_scaling)
+            evaluate_individual(trial_structures[i], trial_constants[i], trial_fitness[i], X, y, linear_scaling)
         
         return population_size
 
