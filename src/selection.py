@@ -46,7 +46,7 @@ def dominates(fitness1, fitness2):
 ), nopython=True, nogil=True, fastmath={"nsz", "arcp", "contract", "afn"}, error_model="numpy", cache=True, parallel=False)
 def fast_non_dominated_sorting(fitness, target_size):
     """Non-dominated sorting as per https://doi.org/10.1109/4235.996017
-    
+
     If target size is less than the number of fitness instances, then the method might stop early and thus only ranks present in a front are accurate.
     """
     size = fitness.shape[0]
@@ -65,13 +65,13 @@ def fast_non_dominated_sorting(fitness, target_size):
         if domination_count[i] == 0:
             ranks[i] = 0
             fronts[0].append(np.int32(i))
-    
+
     total = 0
     while len(fronts[-1]) > 0:
         total += len(fronts[-1])
         if total >= target_size:
             return ranks, fronts
-        
+
         fronts.append(nb.typed.List.empty_list(nty.int32))
         for i in fronts[-2]:
             for j in dominated_by[i]:
@@ -79,7 +79,7 @@ def fast_non_dominated_sorting(fitness, target_size):
                 if domination_count[j] == 0:
                     ranks[j] = len(fronts) - 1
                     fronts[-1].append(np.int32(j))
-    
+
     return ranks, fronts[:-1]
 
 @nb.jit((
@@ -102,7 +102,7 @@ def crowding_distance(fitness):
         for i in range(1, k - 1):
             distance[indices[i]] += (fitness[indices[i+1], j] - fitness[indices[i-1], j]) \
                     / objective_range
-    
+
     return distance
 
 @nb.jit(nopython=True, nogil=True, cache=True, parallel=False, inline="always")
@@ -126,7 +126,7 @@ def nsgaII_selection(fitness, target_size):
         for j in fronts[i]:
             indices.append(j)
         i += 1
-    
+
     if i < len(fronts) and len(indices) < target_size:
         by_distance = np.argsort(crowding_distance(numpy_index(fitness, fronts[i])))
         for j in range(target_size - len(indices)):
@@ -156,7 +156,7 @@ def select_multi_objective(
     joint_fitness[population_size:, :] = trial_fitness
 
     indices = sorted(nsgaII_selection(joint_fitness, population_size))
-    
+
     # since the surviving indices are sorted, we can just replace the population indices that
     # do not make it (i.e. where i < indices[start]) with surviving indices from the trial population
     start, end = 0, population_size

@@ -79,7 +79,7 @@ def DEPGEP(
         perform_selection = select_multi_objective
     else:
         perform_selection = select_single_objective
-    
+
     if not quiet:
         print(f"done after {time.time() - t_call:.3f}s")
 
@@ -90,7 +90,7 @@ def DEPGEP(
     # initialization
     structures = rng.random((population_size, max_expression_size), dtype=np.float32) * (len(operators) + X.shape[1] + num_constants)
     constants = rng.random((population_size, num_constants), dtype=np.float32)
-    
+
     if initialisation == "random":
         pass # population is already initialized randomly
     elif initialisation == "grow":
@@ -227,11 +227,11 @@ if __name__ == "__main__":
 
     import matplotlib.pyplot as plt
     import seaborn as sns
-    
+
     ground_truth = "0.3 * x0 * sin(2 * pi * x0)"
     X, y = synthetic_problem(ground_truth, random_state=42)
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
-    
+
     so_front = DEPGEP(
         X=X_train,
         y=y_train,

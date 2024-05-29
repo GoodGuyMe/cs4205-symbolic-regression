@@ -21,7 +21,7 @@ def get_fitness_and_parser(
         operators: list[str]
 ):
     """Returns evaluation functions and expression -> sympy parsing function.
-    
+
     Uses python metaprogramming to create a jit compiled evaluation function that can be cached.
     - Code for resolving operators is dynamically hardcoded to be able to use numba nopython mode
     - The code is then stored in a python file to make numba caching work and dynamically imported
@@ -36,7 +36,7 @@ def get_fitness_and_parser(
     fmt = [OPERATORS[op][1] for op in op_indices]
     arity = np.array(list(map(get_arity, fmt)) \
         + [0 for _ in range(num_inputs + num_constants)]).astype(np.int32)
-    
+
     # 2. peak python metaprogramming
     os.makedirs(CACHE_DIR, exist_ok=True)
     # Windows apparently does not like characters like * or + in file paths, so we use a hash...
@@ -88,12 +88,12 @@ def compute_output(structure, constants, eval_buffer, X):
             op_stack_size -= 1
             buffer_idx = eval_stack[op_stack_size, 0]
             op = eval_stack[op_stack_size, 1]
-            
+
             # update arity and arguments left for the parent node
             arg_stack_size -= arity[op]
             if op_stack_size > 0:
                 eval_stack[op_stack_size - 1, 2] -= 1
-            
+
             if op < num_operators:
                 # the order of the arguments on the stack is inverted, but we already
                 # decreased the stack size, so they are in the correct order again...
@@ -174,7 +174,7 @@ def evaluate_population(structures, constants, fitness, X, y, linear_scaling):
     if overwrite:
         with open(path, "+w", encoding="utf-8") as f:
             f.write(code)
-    
+
     # 4. importing the code
     spec = importlib.util.spec_from_file_location(key, path)
     module = importlib.util.module_from_spec(spec)
@@ -238,7 +238,7 @@ def evaluate_population(structures, constants, fitness, X, y, linear_scaling):
                 j += 1
         if j >= max_expression_size:
             return None
-        
+
         if linear_scaling:
             eval_buffer = np.empty(shape=(max_instances, max_expression_size), dtype=np.float32)
             compute_output(structure, constants, eval_buffer, X)
