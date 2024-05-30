@@ -232,6 +232,8 @@ if __name__ == "__main__":
     X, y = synthetic_problem(ground_truth, random_state=42)
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
 
+    seed = 12341234
+
     so_front = DEPGEP(
         X=X_train,
         y=y_train,
@@ -242,7 +244,15 @@ if __name__ == "__main__":
         linear_scaling=False,
         multi_objective=False,
         max_time_seconds=30,
-        return_value="non_dominated"
+        return_value="non_dominated",
+        seed=seed,
+        log_file='results/finite-difference/so_front.csv',
+        log_meta={
+            'method': 'so-finite-difference',
+            'problem': ground_truth,
+            'fold': 0,
+            'repeat': 0,
+        }
     )
 
     # with more objectives, larger population sizes and budgets are needed
@@ -256,7 +266,15 @@ if __name__ == "__main__":
         linear_scaling=True,
         multi_objective=True,
         max_time_seconds=60,
-        return_value="non_dominated"
+        return_value="non_dominated",
+        seed=seed,
+        log_file='results/finite-difference/mo_front.csv',
+        log_meta={
+            'method': 'so-finite-difference',
+            'problem': ground_truth,
+            'fold': 0,
+            'repeat': 0,
+        }
     )
 
     so_front["type"] = "Single Objective"
@@ -276,4 +294,4 @@ if __name__ == "__main__":
         ax.text(row["size"] + 0.2, row["mse_train"], row["expression"], fontsize=8)
     ax.set_yscale("log")
     ax.set_title(f"Pareto Approximation Fronts for {ground_truth}")
-    plt.show()
+    plt.savefig('./plots/pareto-front.png')
