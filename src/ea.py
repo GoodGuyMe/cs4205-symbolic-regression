@@ -270,7 +270,7 @@ if __name__ == "__main__":
         seed=seed,
         log_file='results/finite-difference/mo_front.csv',
         log_meta={
-            'method': 'so-finite-difference',
+            'method': 'mo-finite-difference',
             'problem': ground_truth,
             'fold': 0,
             'repeat': 0,
