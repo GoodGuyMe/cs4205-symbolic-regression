@@ -68,26 +68,78 @@ def get_variation_fn(
                     trial_constants[i, j] = constants[i, j]
 
         # evaluate_population(temp_trial_structures, trial_constants, temp_trial_fitness, X, y, linear_scaling)
-
+        finite_difference_method = 'central'  # 'forward' or 'central' or 'backward'
 
         gradients = np.zeros_like(trial_structures)
         for i in range(trial_structures.shape[0]):
             for j in range(trial_structures.shape[1]):
                 # Perturb the structure positively and negatively
-                original_value = temp_trial_structures[i, j]
-                temp_trial_structures[i, j] = original_value + epsilon
-                evaluate_individual(temp_trial_structures[i], trial_constants[i], temp_trial_fitness[i], X, y, linear_scaling)
-                fitness_plus = temp_trial_fitness[i][0]
-                temp_trial_structures[i, j] = original_value - epsilon
-                evaluate_individual(temp_trial_structures[i], trial_constants[i], temp_trial_fitness[i], X, y, linear_scaling)
-                fitness_minus = temp_trial_fitness[i][0]
-                # Calculate the gradient using finite differences
-                if not math.isinf(fitness_plus) and not math.isinf(fitness_minus):
-                    gradients[i, j] = ((fitness_plus - fitness_minus) / (2 * epsilon))
-                # else:
-                #     print("inf")
-                # Reset the structure to its original value
-                temp_trial_structures[i, j] = original_value
+                if finite_difference_method == 'forward':
+                    # f'(x) = 1/h * (f(x + h) - f(x)) : forward difference method
+                    original_value = temp_trial_structures[i, j]
+                    temp_trial_structures[i, j] = original_value + epsilon
+                    evaluate_individual(temp_trial_structures[i], trial_constants[i], temp_trial_fitness[i], X, y, linear_scaling)
+                    fitness_plus = temp_trial_fitness[i][0]
+                    temp_trial_structures[i, j] = original_value
+                    evaluate_individual(temp_trial_structures[i], trial_constants[i], temp_trial_fitness[i], X, y, linear_scaling)
+                    fitness_minus = temp_trial_fitness[i][0]
+                    # Calculate the gradient using finite differences
+                    if not math.isinf(fitness_plus) and not math.isinf(fitness_minus):
+                        gradients[i, j] = ((fitness_plus - fitness_minus) / (epsilon))
+                    # else:
+                    #     print("inf")
+                    # Reset the structure to its original value
+                    temp_trial_structures[i, j] = original_value
+                elif finite_difference_method == 'backward':
+                    # f'(x) = 1/h * (f(x) - f(x - h)) : backward difference method
+                    original_value = temp_trial_structures[i, j]
+                    temp_trial_structures[i, j] = original_value
+                    evaluate_individual(temp_trial_structures[i], trial_constants[i], temp_trial_fitness[i], X, y, linear_scaling)
+                    fitness_plus = temp_trial_fitness[i][0]
+                    temp_trial_structures[i, j] = original_value - epsilon
+                    evaluate_individual(temp_trial_structures[i], trial_constants[i], temp_trial_fitness[i], X, y, linear_scaling)
+                    fitness_minus = temp_trial_fitness[i][0]
+                    # Calculate the gradient using finite differences
+                    if not math.isinf(fitness_plus) and not math.isinf(fitness_minus):
+                        gradients[i, j] = ((fitness_plus - fitness_minus) / (epsilon))
+                    # else:
+                    #     print("inf")
+                    # Reset the structure to its original value
+                    temp_trial_structures[i, j] = original_value
+
+                elif finite_difference_method == 'central':
+                    # f'(x) = 1/(2h) * (f(x + h) - f(x - h)) : central difference method
+                    original_value = temp_trial_structures[i, j]
+                    temp_trial_structures[i, j] = original_value + epsilon
+                    evaluate_individual(temp_trial_structures[i], trial_constants[i], temp_trial_fitness[i], X, y, linear_scaling)
+                    fitness_plus = temp_trial_fitness[i][0]
+                    temp_trial_structures[i, j] = original_value - epsilon
+                    evaluate_individual(temp_trial_structures[i], trial_constants[i], temp_trial_fitness[i], X, y, linear_scaling)
+                    fitness_minus = temp_trial_fitness[i][0]
+                    # Calculate the gradient using finite differences
+                    if not math.isinf(fitness_plus) and not math.isinf(fitness_minus):
+                        gradients[i, j] = ((fitness_plus - fitness_minus) / (2 * epsilon))
+                    # else:
+                    #     print("inf")
+                    # Reset the structure to its original value
+                    temp_trial_structures[i, j] = original_value
+                else: # default to central difference method
+                    # f'(x) = 1/(2h) * (f(x + h) - f(x - h)) : central difference method
+                    original_value = temp_trial_structures[i, j]
+                    temp_trial_structures[i, j] = original_value + epsilon
+                    evaluate_individual(temp_trial_structures[i], trial_constants[i], temp_trial_fitness[i], X, y, linear_scaling)
+                    fitness_plus = temp_trial_fitness[i][0]
+                    temp_trial_structures[i, j] = original_value - epsilon
+                    evaluate_individual(temp_trial_structures[i], trial_constants[i], temp_trial_fitness[i], X, y, linear_scaling)
+                    fitness_minus = temp_trial_fitness[i][0]
+                    # Calculate the gradient using finite differences
+                    if not math.isinf(fitness_plus) and not math.isinf(fitness_minus):
+                        gradients[i, j] = ((fitness_plus - fitness_minus) / (2 * epsilon))
+                    # else:
+                    #     print("inf")
+                    # Reset the structure to its original value
+                    temp_trial_structures[i, j] = original_value
+            
 
         # Use the gradients to perform a local search on the structures
         # if np.sum(gradients) != 0:
