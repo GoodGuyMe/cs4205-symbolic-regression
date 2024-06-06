@@ -37,6 +37,11 @@ def DEPGEP(
     log_meta: dict | None = None,
     quiet: bool = False,
     return_value: Literal["mse_elite", "non_dominated"] | None = None,
+    learning_rate: float = 0.01,
+    epsilon: float = 0.00001,
+    structure_search: str = 'none',
+    constants_search: str = 'none',
+    elitist_local_search: bool = False,
     **kwargs
 ):
     """An implementation of DE-PGEP (https://doi.org/10.1145/1389095.1389331)."""
@@ -73,7 +78,12 @@ def DEPGEP(
         num_inputs=X.shape[1],
         scaling_factor=scaling_factor,
         p_crossover=p_crossover,
-        linear_scaling=linear_scaling
+        linear_scaling=linear_scaling,
+        learning_rate=learning_rate,
+        epsilon=epsilon,
+        structure_search=structure_search,
+        constants_search=constants_search,
+        elitist_local_search=elitist_local_search,
     )
 
     if multi_objective:
@@ -196,7 +206,12 @@ def get_compiled_functions(
     num_inputs: int,
     scaling_factor: float,
     p_crossover: float,
-    linear_scaling: bool
+    linear_scaling: bool,
+    learning_rate: float,
+    epsilon: float,
+    structure_search: str,
+    constants_search: str,
+    elitist_local_search: bool,
 ):
     """This function aims to avoid repeated jit compilations by caching"""
     evaluate_individual, evaluate_population, to_sympy = get_fitness_and_parser(
@@ -216,7 +231,12 @@ def get_compiled_functions(
         scaling_factor=scaling_factor,
         linear_scaling=linear_scaling,
         evaluate_individual=evaluate_individual,
-        evaluate_population=evaluate_population
+        evaluate_population=evaluate_population,
+        learning_rate=learning_rate,
+        epsilon=epsilon,
+        structure_search=structure_search,
+        constants_search=constants_search,
+        elitist_local_search=elitist_local_search,
     )
 
     return (
