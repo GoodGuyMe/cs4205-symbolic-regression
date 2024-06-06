@@ -3,9 +3,6 @@ import numba as nb
 from numba import types as nty
 import math
 
-
-iteration = 0
-
 def get_variation_fn(
         population_size: int,
         max_expression_size: int,
@@ -16,7 +13,8 @@ def get_variation_fn(
         linear_scaling: bool,
         evaluate_individual: callable,
         evaluate_population: callable,
-        learning_rate: float = 0.01,
+        initial_learning_rate: float = 0.01,
+        learning_rate_decay: float = 0.99,
         epsilon: float = 0.00001,
         structure_search: str = 'none',  # 'none' or 'forward' or 'central' or 'backward'
         constants_search: str = 'none',  # 'none' or 'forward' or 'central' or 'backward'
@@ -36,6 +34,7 @@ def get_variation_fn(
         parallel=False)
     def perform_variation(structures, constants, fitness, trial_structures, trial_constants, trial_fitness, X, y, rng):
         """Performs a variation step and returns the number of fitness evaluations performed."""
+        iteration = 0
 
         def update_parameters(param, grad, temp_param, lr):
             for i in range(param.shape[0]):
@@ -95,6 +94,10 @@ def get_variation_fn(
         temp_trial_structs = np.zeros_like(trial_structures)
         temp_trial_fit = np.zeros_like(trial_fitness)
         temp_trial_consts = np.zeros_like(trial_constants)
+
+        # Update the learning rate
+        iteration += 1
+        learning_rate = initial_learning_rate * (learning_rate_decay ** iteration)
 
         ########################################## MUTATION ##############################################
 
