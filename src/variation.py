@@ -4,6 +4,8 @@ from numba import types as nty
 import math
 
 
+iteration = 0
+
 def get_variation_fn(
         population_size: int,
         max_expression_size: int,
