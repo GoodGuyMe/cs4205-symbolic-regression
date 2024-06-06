@@ -24,7 +24,6 @@ def get_variation_fn(
     def update_learning_rate():
         global iteration
         iteration += 1
-        print(iteration, flush=True)
         return initial_learning_rate * (learning_rate_decay ** iteration)
 
     # @nb.jit((
