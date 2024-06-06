@@ -22,6 +22,10 @@ conda activate cs4205-project
 python -m src.ea
 ```
 
+To create the plots:
+1. define the appropriate metadata (method, problem, fold, repeat)
+2. run `python evaluate.py`
+
 ### Using a Devcontainer
 
 Generally, you need [Docker](https://www.docker.com/products/docker-desktop/) and [editor support](https://containers.dev/supporting), then the editor will tell you what to do:

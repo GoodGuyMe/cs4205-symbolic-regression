@@ -20,7 +20,7 @@ def run_once(train_path, test_path, **kwargs):
     try:
         X, y = load_problem(train_path)
         X_test, y_test = load_problem(test_path) if test_path is not None else (None, None)
-        
+
         DEPGEP(X, y, X_test=X_test, y_test=y_test, **kwargs)
     except KeyboardInterrupt as e:
         raise e
@@ -98,7 +98,7 @@ if __name__ == "__main__":
         log_frequency = 100,
         # quiet = True
     )
-    
+
     run_experiment(
         problems=[
             # from https://doi.org/10.1145/1389095.1389331
