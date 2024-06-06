@@ -13,20 +13,20 @@ def get_variation_fn(
     linear_scaling: bool,
     evaluate_individual: callable,
     evaluate_population: callable,
-    learning_rate: float = 0.01,
+    learning_rate: float = 0.001,
     epsilon: float = 0.00001
 ):
-    # @nb.jit((
-    #     nty.Array(nty.float32, 2, "C"),
-    #     nty.Array(nty.float32, 2, "C"),
-    #     nty.Array(nty.float32, 2, "C"),
-    #     nty.Array(nty.float32, 2, "C"),
-    #     nty.Array(nty.float32, 2, "C"),
-    #     nty.Array(nty.float32, 2, "C"),
-    #     nty.Array(nty.float32, 2, "C", readonly=True),
-    #     nty.Array(nty.float32, 1, "C", readonly=True),
-    #     nb.typeof(np.random.Generator(np.random.Philox()))
-    #     ), nopython=True, nogil=True, fastmath={"nsz", "arcp", "contract", "afn"}, error_model="numpy", cache=True, parallel=False)
+    @nb.jit((
+        nty.Array(nty.float32, 2, "C"),
+        nty.Array(nty.float32, 2, "C"),
+        nty.Array(nty.float32, 2, "C"),
+        nty.Array(nty.float32, 2, "C"),
+        nty.Array(nty.float32, 2, "C"),
+        nty.Array(nty.float32, 2, "C"),
+        nty.Array(nty.float32, 2, "C", readonly=True),
+        nty.Array(nty.float32, 1, "C", readonly=True),
+        nb.typeof(np.random.Generator(np.random.Philox()))
+        ), nopython=True, nogil=True, fastmath={"nsz", "arcp", "contract", "afn"}, error_model="numpy", cache=True, parallel=False)
     def perform_variation(structures, constants, fitness, trial_structures, trial_constants, trial_fitness, X, y, rng):
         """Performs a variation step and returns the number of fitness evaluations performed."""
 
@@ -118,7 +118,7 @@ def get_variation_fn(
                     fitness_minus = temp_trial_fitness[i][0]
                     # Calculate the gradient using finite differences
                     if not math.isinf(fitness_plus) and not math.isinf(fitness_minus):
-                        gradients[i, j] = ((fitness_plus - fitness_minus) / (2 * epsilon))
+                        gradients[i, j] = ((fitness_plus - fitness_minus) / (2))
                     # else:
                     #     print("inf")
                     # Reset the structure to its original value
@@ -139,11 +139,14 @@ def get_variation_fn(
                     #     print("inf")
                     # Reset the structure to its original value
                     temp_trial_structures[i, j] = original_value
-            
+
 
         # Use the gradients to perform a local search on the structures
-        # if np.sum(gradients) != 0:
-        #     print("working")
+        if np.sum(gradients) != 0:
+            print("working")
+            print(max(gradients.flatten()))
+            print(min(gradients.flatten()))
+            print("yo")
 
         for i in range(trial_structures.shape[0]):
             for j in range(trial_structures.shape[1]):
