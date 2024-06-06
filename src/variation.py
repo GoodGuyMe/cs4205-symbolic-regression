@@ -3,6 +3,8 @@ import numba as nb
 from numba import types as nty
 import math
 
+iteration = 0
+
 def get_variation_fn(
     population_size: int,
     max_expression_size: int,
@@ -13,9 +15,18 @@ def get_variation_fn(
     linear_scaling: bool,
     evaluate_individual: callable,
     evaluate_population: callable,
-    learning_rate: float = 0.01,
+    initial_learning_rate: float = 0.01,
+    learning_rate_decay: float = 0.99,
+
     epsilon: float = 0.00001
 ):
+
+    def update_learning_rate():
+        global iteration
+        iteration += 1
+        print(iteration, flush=True)
+        return initial_learning_rate * (learning_rate_decay ** iteration)
+
     # @nb.jit((
     #     nty.Array(nty.float32, 2, "C"),
     #     nty.Array(nty.float32, 2, "C"),
@@ -34,6 +45,8 @@ def get_variation_fn(
 
         temp_trial_structures = np.zeros_like(trial_structures)
         temp_trial_fitness = np.zeros_like(trial_structures)
+
+        learning_rate = update_learning_rate()
 
 
         for i in range(population_size):
