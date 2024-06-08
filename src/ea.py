@@ -37,6 +37,12 @@ def DEPGEP(
     log_meta: dict | None = None,
     quiet: bool = False,
     return_value: Literal["mse_elite", "non_dominated"] | None = None,
+    initial_learning_rate: float = 0.01,
+    learning_rate_decay: float = 0.99,
+    epsilon: float = 0.00001,
+    structure_search: str = 'none',
+    constants_search: str = 'none',
+    elitist_local_search: bool = False,
     **kwargs
 ):
     """An implementation of DE-PGEP (https://doi.org/10.1145/1389095.1389331)."""
@@ -73,14 +79,20 @@ def DEPGEP(
         num_inputs=X.shape[1],
         scaling_factor=scaling_factor,
         p_crossover=p_crossover,
-        linear_scaling=linear_scaling
+        linear_scaling=linear_scaling,
+        initial_learning_rate=initial_learning_rate,
+        learning_rate_decay=learning_rate_decay,
+        epsilon=epsilon,
+        structure_search=structure_search,
+        constants_search=constants_search,
+        elitist_local_search=elitist_local_search,
     )
 
     if multi_objective:
         perform_selection = select_multi_objective
     else:
         perform_selection = select_single_objective
-    
+
     if not quiet:
         print(f"done after {time.time() - t_call:.3f}s")
 
@@ -91,7 +103,7 @@ def DEPGEP(
     # initialization, with random seeds
     structures = rng.random((population_size, max_expression_size), dtype=np.float32) * (len(operators) + X.shape[1] + num_constants)
     constants = rng.random((population_size, num_constants), dtype=np.float32)
-    
+
     if initialisation == "random":
         pass # population is already initialized randomly
     elif initialisation == "grow":
@@ -196,7 +208,13 @@ def get_compiled_functions(
     num_inputs: int,
     scaling_factor: float,
     p_crossover: float,
-    linear_scaling: bool
+    linear_scaling: bool,
+    initial_learning_rate: float,
+    learning_rate_decay: float,
+    epsilon: float,
+    structure_search: str,
+    constants_search: str,
+    elitist_local_search: bool,
 ):
     """This function aims to avoid repeated jit compilations by caching"""
     evaluate_individual, evaluate_population, to_sympy = get_fitness_and_parser(
@@ -216,7 +234,13 @@ def get_compiled_functions(
         scaling_factor=scaling_factor,
         linear_scaling=linear_scaling,
         evaluate_individual=evaluate_individual,
-        evaluate_population=evaluate_population
+        evaluate_population=evaluate_population,
+        initial_learning_rate=initial_learning_rate,
+        learning_rate_decay=learning_rate_decay,
+        epsilon=epsilon,
+        structure_search=structure_search,
+        constants_search=constants_search,
+        elitist_local_search=elitist_local_search,
     )
 
     return (
@@ -233,11 +257,13 @@ if __name__ == "__main__":
 
     import matplotlib.pyplot as plt
     import seaborn as sns
-    
+
     ground_truth = "0.3 * x0 * sin(2 * pi * x0)"
     X, y = synthetic_problem(ground_truth, random_state=42)
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
-    
+
+    seed = 12341234
+
     so_front = DEPGEP(
         X=X_train,
         y=y_train,
@@ -248,7 +274,15 @@ if __name__ == "__main__":
         linear_scaling=False,
         multi_objective=False,
         max_time_seconds=30,
-        return_value="non_dominated"
+        return_value="non_dominated",
+        seed=seed,
+        log_file='results/finite-difference/so_front.csv',
+        log_meta={
+            'method': 'so-finite-difference',
+            'problem': ground_truth,
+            'fold': 0,
+            'repeat': 0,
+        }
     )
 
     # with more objectives, larger population sizes and budgets are needed
@@ -262,7 +296,15 @@ if __name__ == "__main__":
         linear_scaling=True,
         multi_objective=True,
         max_time_seconds=60,
-        return_value="non_dominated"
+        return_value="non_dominated",
+        seed=seed,
+        log_file='results/finite-difference/mo_front.csv',
+        log_meta={
+            'method': 'mo-finite-difference',
+            'problem': ground_truth,
+            'fold': 0,
+            'repeat': 0,
+        }
     )
 
     so_front["type"] = "Single Objective"
@@ -282,4 +324,4 @@ if __name__ == "__main__":
         ax.text(row["size"] + 0.2, row["mse_train"], row["expression"], fontsize=8)
     ax.set_yscale("log")
     ax.set_title(f"Pareto Approximation Fronts for {ground_truth}")
-    plt.show()
+    plt.savefig('./plots/pareto-front.png')
