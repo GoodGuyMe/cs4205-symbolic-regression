@@ -14,12 +14,12 @@ def get_variation_fn(
         linear_scaling: bool,
         evaluate_individual: callable,
         evaluate_population: callable,
-        initial_learning_rate: float,
-        learning_rate_decay: float,
         epsilon: float,
         structure_search: str,
         constants_search: str,
         search_perc: int,
+        consts_diff: bool,
+        search_threshold: int,
 ):
     @nb.jit((
             nty.Array(nty.float32, 2, "C"),
@@ -30,10 +30,13 @@ def get_variation_fn(
             nty.Array(nty.float32, 2, "C"),
             nty.Array(nty.float32, 2, "C", readonly=True),
             nty.Array(nty.float32, 1, "C", readonly=True),
-            nb.typeof(np.random.Generator(np.random.Philox()))
+            nb.typeof(np.random.Generator(np.random.Philox())),
+            nty.float32,
+            nty.float32
     ), nopython=True, nogil=True, fastmath={"nsz", "arcp", "contract", "afn"}, error_model="numpy", cache=False,
         parallel=False)
-    def perform_variation(structures, constants, fitness, trial_structures, trial_constants, trial_fitness, X, y, rng):
+    def perform_variation(structures, constants, fitness, trial_structures, trial_constants, trial_fitness, X, y, rng,
+                          prev_best_fit, learning_rate):
         """Performs a variation step and returns the number of fitness evaluations performed."""
         iteration = 0
 
@@ -93,10 +96,6 @@ def get_variation_fn(
         temp_trial_fit = np.zeros_like(trial_fitness)
         temp_trial_consts = np.zeros_like(trial_constants)
 
-        # Update the learning rate
-        iteration += 1
-        learning_rate = initial_learning_rate * (learning_rate_decay ** iteration)
-
         ############################################ MUTATION ################################################
 
         for i in range(population_size):
@@ -125,20 +124,26 @@ def get_variation_fn(
 
             for j in range(constants.shape[1]):
                 # perform crossover on selected index j_rand with proba 1 or with proba p_crossover on other indices
-                if rng.random() < p_crossover or j == j_rand:
+                if consts_diff and rng.random() < p_crossover or j == j_rand:
                     # as these are constants, no repair is required
-                    temp_trial_consts[i, j] = constants[r0, j] + scaling_factor * (constants[r1, j] - constants[r2, j])
+                    temp_trial_consts[i, j] = constants[r0, j] + scaling_factor * (
+                                constants[r1, j] - constants[r2, j])
                 else:
                     temp_trial_consts[i, j] = constants[i, j]
 
         ################################ IDENTIFY LOCAL SEARCH CANDIDATES ####################################
 
+        apply_local_search = False
         num_solutions = temp_trial_fit.shape[0]
         best_indices = np.arange(num_solutions)
         if constants_search != 'none':
             evaluate_population(temp_trial_structs, temp_trial_consts, temp_trial_fit, X, y, linear_scaling)
             # Sort the population based on fitness proceed with local search for the best search_perc solutions
-            best_indices = np.argsort(trial_fitness[:, 0])[:min(num_solutions, np.ceil(num_solutions * search_perc / 100))]
+            best_indices = np.argsort(temp_trial_fit[:, 0])[:min(num_solutions, int(np.ceil(num_solutions * search_perc / 100)))]
+            # Only apply local search when the search_threshold is exceeded
+
+            new_best_fit = temp_trial_fit[temp_trial_fit[:, 0].argmin(), 0]
+            apply_local_search = (new_best_fit - prev_best_fit) / prev_best_fit * 100 < -search_threshold
 
         ########################################## LOCAL SEARCH ##############################################
 
@@ -148,7 +153,7 @@ def get_variation_fn(
                                                temp_trial_consts, y, True, best_indices)
 
         consts_grad = np.zeros_like(trial_constants)
-        if constants_search != 'none':
+        if constants_search != 'none' and apply_local_search:
             consts_grad = finite_differencing(X, constants_search, temp_trial_fit, temp_trial_consts,
                                               temp_trial_structs, y, False, best_indices)
 
