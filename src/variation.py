@@ -44,15 +44,9 @@ def get_variation_fn(
         def check_if_constants_used(structure):
             for struct in structure:
                 op = int(abs(struct))
-                if op >= num_operators:
-                    op -= num_operators
-                    if op >= X.shape[1]:
-                        # print("CONSTANT")
-                        return True
-                #     else:
-                #         print("X")
-                # else:
-                #     print("OPERATOR")
+                if op >= (num_operators + X.shape[1]):
+                    # print("CONSTANT")
+                    return True
             print("NO CONSTANT")
             return False
 
