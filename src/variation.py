@@ -48,7 +48,7 @@ def get_variation_fn(
                 if op >= (num_operators + X.shape[1]):
                     op -= num_operators + X.shape[1]
                     consts_used.append(op)
-            print(consts_used)
+            # print(consts_used)
             return consts_used
 
         def update_parameters(param, grad, temp_param, lr):

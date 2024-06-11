@@ -39,7 +39,7 @@ def DEPGEP(
     return_value: Literal["mse_elite", "non_dominated"] | None = None,
     initial_learning_rate: float = 0.01,
     learning_rate_decay: float = 0.99,
-    epsilon: float = 0.001,
+    epsilon: float = 0.00001,
     structure_search: str = 'none',  # 'none' or 'forward' or 'central' or 'backward'
     constants_search: str = 'central',  # 'none' or 'forward' or 'central' or 'backward'
     search_perc: int = 10,
@@ -286,7 +286,7 @@ if __name__ == "__main__":
     X, y = synthetic_problem(ground_truth, random_state=42)
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
 
-    seed = None
+    seed = 12341234
 
     so_front = DEPGEP(
         X=X_train,
