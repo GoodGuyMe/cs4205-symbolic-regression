@@ -40,9 +40,11 @@ def DEPGEP(
     initial_learning_rate: float = 0.01,
     learning_rate_decay: float = 0.99,
     epsilon: float = 0.00001,
-    structure_search: str = 'none',
-    constants_search: str = 'none',
-    elitist_local_search: bool = False,
+    structure_search: str = 'none',  # 'none' or 'forward' or 'central' or 'backward'
+    constants_search: str = 'central',  # 'none' or 'forward' or 'central' or 'backward'
+    search_perc: int = 10,
+    consts_diff: bool = True,  # whether to perform differential evolution on the constants
+    search_threshold: int = 10,  # the improvement threshold which has to be met in order to perform local search
     **kwargs
 ):
     """An implementation of DE-PGEP (https://doi.org/10.1145/1389095.1389331)."""
@@ -85,7 +87,9 @@ def DEPGEP(
         epsilon=epsilon,
         structure_search=structure_search,
         constants_search=constants_search,
-        elitist_local_search=elitist_local_search,
+        search_perc=search_perc,
+        consts_diff=consts_diff,
+        search_threshold=search_threshold,
     )
 
     if multi_objective:
@@ -137,6 +141,13 @@ def DEPGEP(
     generation = 0
     t_start = time.time()
     t_last_print = 0
+
+    # Keep track of best fitness
+    prev_best_fit = fitness[fitness[:, 0].argmin(), 0]
+
+    iteration = 0
+    learning_rate = initial_learning_rate
+
     while (max_generations is None or generation < max_generations) \
         and (max_evaluations is None or evaluations < max_evaluations) \
         and (max_time_seconds is None or time_seconds < max_time_seconds):
@@ -146,10 +157,17 @@ def DEPGEP(
 
         generation_start = time.time()
         # perform variation
-        evaluations += perform_variation(structures, constants, fitness, trial_structures, trial_constants, trial_fitness, X, y, rng)
+        evaluations += perform_variation(structures, constants, fitness, trial_structures, trial_constants, trial_fitness, X, y, rng, prev_best_fit, learning_rate)
         # perform selection
         perform_selection(structures, constants, fitness, trial_structures, trial_constants, trial_fitness)
         generation_end = time.time()
+
+        # update average fitness value of previous generation
+        prev_best_fit = trial_fitness[trial_fitness[:, 0].argmin(), 0]
+
+        # Update the learning rate
+        iteration += 1
+        learning_rate = initial_learning_rate * (learning_rate_decay ** iteration)
 
         # use this to check that the fitness matches the encoded expressions
         # debug_assert_fitness_correctness(structures, constants, fitness, to_sympy, X, y, linear_scaling)
@@ -198,6 +216,7 @@ def DEPGEP(
             print(f"{sym.simplify(best['expression'])} @ (MSE: {best['mse_train']}, Size: {best['size']})")
         return pd.DataFrame(front)
 
+
 @cache
 def get_compiled_functions(
     operators: list[str],
@@ -214,7 +233,9 @@ def get_compiled_functions(
     epsilon: float,
     structure_search: str,
     constants_search: str,
-    elitist_local_search: bool,
+    search_perc: int,
+    consts_diff: bool,
+    search_threshold: int,
 ):
     """This function aims to avoid repeated jit compilations by caching"""
     evaluate_individual, evaluate_population, to_sympy = get_fitness_and_parser(
@@ -235,12 +256,12 @@ def get_compiled_functions(
         linear_scaling=linear_scaling,
         evaluate_individual=evaluate_individual,
         evaluate_population=evaluate_population,
-        initial_learning_rate=initial_learning_rate,
-        learning_rate_decay=learning_rate_decay,
         epsilon=epsilon,
         structure_search=structure_search,
         constants_search=constants_search,
-        elitist_local_search=elitist_local_search,
+        search_perc=search_perc,
+        consts_diff=consts_diff,
+        search_threshold=search_threshold
     )
 
     return (
