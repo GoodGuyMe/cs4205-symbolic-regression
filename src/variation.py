@@ -22,20 +22,20 @@ def get_variation_fn(
         search_threshold: int,
         num_operators: int
 ):
-    # @nb.jit((
-    #         nty.Array(nty.float32, 2, "C"),
-    #         nty.Array(nty.float32, 2, "C"),
-    #         nty.Array(nty.float32, 2, "C"),
-    #         nty.Array(nty.float32, 2, "C"),
-    #         nty.Array(nty.float32, 2, "C"),
-    #         nty.Array(nty.float32, 2, "C"),
-    #         nty.Array(nty.float32, 2, "C", readonly=True),
-    #         nty.Array(nty.float32, 1, "C", readonly=True),
-    #         nb.typeof(np.random.Generator(np.random.Philox())),
-    #         nty.float32,
-    #         nty.float32
-    # ), nopython=True, nogil=True, fastmath={"nsz", "arcp", "contract", "afn"}, error_model="numpy", cache=False,
-    #     parallel=False)
+    @nb.jit((
+            nty.Array(nty.float32, 2, "C"),
+            nty.Array(nty.float32, 2, "C"),
+            nty.Array(nty.float32, 2, "C"),
+            nty.Array(nty.float32, 2, "C"),
+            nty.Array(nty.float32, 2, "C"),
+            nty.Array(nty.float32, 2, "C"),
+            nty.Array(nty.float32, 2, "C", readonly=True),
+            nty.Array(nty.float32, 1, "C", readonly=True),
+            nb.typeof(np.random.Generator(np.random.Philox())),
+            nty.float32,
+            nty.float32
+    ), nopython=True, nogil=True, fastmath={"nsz", "arcp", "contract", "afn"}, error_model="numpy", cache=False,
+        parallel=False)
     def perform_variation(structures, constants, fitness, trial_structures, trial_constants, trial_fitness, X, y, rng,
                           prev_best_fit, learning_rate):
         """Performs a variation step and returns the number of fitness evaluations performed."""
