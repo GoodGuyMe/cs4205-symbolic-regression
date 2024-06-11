@@ -21,20 +21,20 @@ def get_variation_fn(
         consts_diff: bool,
         search_threshold: int,
 ):
-    @nb.jit((
-            nty.Array(nty.float32, 2, "C"),
-            nty.Array(nty.float32, 2, "C"),
-            nty.Array(nty.float32, 2, "C"),
-            nty.Array(nty.float32, 2, "C"),
-            nty.Array(nty.float32, 2, "C"),
-            nty.Array(nty.float32, 2, "C"),
-            nty.Array(nty.float32, 2, "C", readonly=True),
-            nty.Array(nty.float32, 1, "C", readonly=True),
-            nb.typeof(np.random.Generator(np.random.Philox())),
-            nty.float32,
-            nty.float32
-    ), nopython=True, nogil=True, fastmath={"nsz", "arcp", "contract", "afn"}, error_model="numpy", cache=False,
-        parallel=False)
+    # @nb.jit((
+    #         nty.Array(nty.float32, 2, "C"),
+    #         nty.Array(nty.float32, 2, "C"),
+    #         nty.Array(nty.float32, 2, "C"),
+    #         nty.Array(nty.float32, 2, "C"),
+    #         nty.Array(nty.float32, 2, "C"),
+    #         nty.Array(nty.float32, 2, "C"),
+    #         nty.Array(nty.float32, 2, "C", readonly=True),
+    #         nty.Array(nty.float32, 1, "C", readonly=True),
+    #         nb.typeof(np.random.Generator(np.random.Philox())),
+    #         nty.float32,
+    #         nty.float32
+    # ), nopython=True, nogil=True, fastmath={"nsz", "arcp", "contract", "afn"}, error_model="numpy", cache=False,
+    #     parallel=False)
     def perform_variation(structures, constants, fitness, trial_structures, trial_constants, trial_fitness, X, y, rng,
                           prev_best_fit, learning_rate):
         """Performs a variation step and returns the number of fitness evaluations performed."""
@@ -109,7 +109,7 @@ def get_variation_fn(
             # construct trial population
             for j in range(structures.shape[1]):
                 # perform crossover on selected index j_rand with proba 1 or with proba p_crossover on other indices
-                if rng.random() < p_crossover or j == j_rand:
+                if (rng.random() < p_crossover or j == j_rand) and False:
                     temp_trial_structs[i, j] = structures[r0, j] + scaling_factor * (
                             structures[r1, j] - structures[r2, j])
                     # repair as per Eq 8 (https://doi.org/10.1145/1389095.1389331) to arive at an integer that corresponds to an operator or variable
@@ -163,6 +163,7 @@ def get_variation_fn(
 
         # evaluate the population
         evaluate_population(trial_structures, trial_constants, trial_fitness, X, y, linear_scaling)
+
         return population_size
 
     return perform_variation

@@ -43,7 +43,7 @@ def DEPGEP(
     structure_search: str = 'none',  # 'none' or 'forward' or 'central' or 'backward'
     constants_search: str = 'central',  # 'none' or 'forward' or 'central' or 'backward'
     search_perc: int = 10,
-    consts_diff: bool = True,  # whether to perform differential evolution on the constants
+    consts_diff: bool = False,  # whether to perform differential evolution on the constants
     search_threshold: int = 10,  # the improvement threshold which has to be met in order to perform local search
     **kwargs
 ):
@@ -105,8 +105,10 @@ def DEPGEP(
         print(f"Using seed {log_meta['seed']}")
 
     # initialization, with random seeds
-    structures = rng.random((population_size, max_expression_size), dtype=np.float32) * (len(operators) + X.shape[1] + num_constants)
-    constants = rng.random((population_size, num_constants), dtype=np.float32)
+    structures = np.array([2, 6, 5] * population_size,  dtype=np.float32).reshape((100, 3)) #* (len(operators) + X.shape[1] + num_constants)
+    constants = np.full((population_size, num_constants), 10, dtype=np.float32)
+
+    print(f"initialisation: {initialisation}")
 
     if initialisation == "random":
         pass # population is already initialized randomly
@@ -121,7 +123,7 @@ def DEPGEP(
     evaluate_population(structures, constants, fitness, X, y, linear_scaling)
     evaluations = population_size
 
-    trial_structures = np.empty((population_size, max_expression_size), dtype=np.float32)
+    trial_structures = np.empty((population_size, 3), dtype=np.float32)
     trial_constants = np.empty((population_size, num_constants), dtype=np.float32)
     trial_fitness = np.empty((population_size, 2), dtype=np.float32)
 
@@ -157,6 +159,8 @@ def DEPGEP(
 
         generation_start = time.time()
         # perform variation
+        print(f"structures: {structures[0]}")
+        print(f"constants: {constants[0]}")
         evaluations += perform_variation(structures, constants, fitness, trial_structures, trial_constants, trial_fitness, X, y, rng, prev_best_fit, learning_rate)
         # perform selection
         perform_selection(structures, constants, fitness, trial_structures, trial_constants, trial_fitness)
@@ -279,7 +283,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import seaborn as sns
 
-    ground_truth = "0.3 * x0 * sin(2 * pi * x0)"
+    ground_truth = "3.1 * x0"
     X, y = synthetic_problem(ground_truth, random_state=42)
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
 
@@ -291,7 +295,7 @@ if __name__ == "__main__":
         X_test=X_test,
         y_test=y_test,
         population_size=100,
-        initialisation="grow",
+        initialisation="random",
         linear_scaling=False,
         multi_objective=False,
         max_time_seconds=30,
