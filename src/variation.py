@@ -41,14 +41,15 @@ def get_variation_fn(
         """Performs a variation step and returns the number of fitness evaluations performed."""
         iteration = 0
 
-        def check_if_constants_used(structure):
+        def get_constants_used(structure):
+            consts_used = []
             for struct in structure:
                 op = int(abs(struct))
                 if op >= (num_operators + X.shape[1]):
-                    # print("CONSTANT")
-                    return True
-            print("NO CONSTANT")
-            return False
+                    op -= num_operators + X.shape[1]
+                    consts_used.append(op)
+            print(consts_used)
+            return consts_used
 
         def update_parameters(param, grad, temp_param, lr):
             for i in range(param.shape[0]):
@@ -58,50 +59,54 @@ def get_variation_fn(
         def finite_differencing(X, finite_difference_method, fitness, to_edit, to_leave, y, edit_structs, best_idxs):
             gradients = np.zeros_like(to_edit)
             for i in best_idxs:
-                for j in range(to_edit.shape[1]):
+                to_edit_used = []
+                if not edit_structs:
+                    to_edit_used = get_constants_used(to_leave[i])
+                else:
+                    to_edit_used = to_edit.shape[1]
+                for j in to_edit_used:
                     # Perturb the structure/constants positively and negatively
-                    if not edit_structs and check_if_constants_used(to_leave[i]):
-                        original_value = to_edit[i, j]
+                    original_value = to_edit[i, j]
 
-                        # f'(x) = 1/h * (f(x + h) - f(x)) : forward difference method
-                        # f'(x) = 1/h * (f(x) - f(x - h)) : backward difference method
-                        # f'(x) = 1/(2h) * (f(x + h) - f(x - h)) : central difference method
+                    # f'(x) = 1/h * (f(x + h) - f(x)) : forward difference method
+                    # f'(x) = 1/h * (f(x) - f(x - h)) : backward difference method
+                    # f'(x) = 1/(2h) * (f(x + h) - f(x - h)) : central difference method
 
-                        # compute first evaluation
-                        if finite_difference_method == 'forward' or finite_difference_method == 'central':
-                            to_edit[i, j] = original_value + epsilon
+                    # compute first evaluation
+                    if finite_difference_method == 'forward' or finite_difference_method == 'central':
+                        to_edit[i, j] = original_value + epsilon
 
-                        if edit_structs:
-                            evaluate_individual(to_edit[i], to_leave[i], fitness[i], X, y, linear_scaling)
-                        else:
+                    if edit_structs:
+                        evaluate_individual(to_edit[i], to_leave[i], fitness[i], X, y, linear_scaling)
+                    else:
 
-                            evaluate_individual(to_leave[i], to_edit[i], fitness[i], X, y, linear_scaling)
+                        evaluate_individual(to_leave[i], to_edit[i], fitness[i], X, y, linear_scaling)
 
-                        # Get MSE
-                        fitness_first = fitness[i][0]
+                    # Get MSE
+                    fitness_first = fitness[i][0]
 
-                        # reset to original value
-                        to_edit[i, j] = original_value
+                    # reset to original value
+                    to_edit[i, j] = original_value
 
-                        # compute second evaluation
-                        if finite_difference_method == 'backward' or finite_difference_method == 'central':
-                            to_edit[i, j] = original_value - epsilon
+                    # compute second evaluation
+                    if finite_difference_method == 'backward' or finite_difference_method == 'central':
+                        to_edit[i, j] = original_value - epsilon
 
-                        if edit_structs:
-                            evaluate_individual(to_edit[i], to_leave[i], fitness[i], X, y, linear_scaling)
-                        else:
-                            evaluate_individual(to_leave[i], to_edit[i], fitness[i], X, y, linear_scaling)
+                    if edit_structs:
+                        evaluate_individual(to_edit[i], to_leave[i], fitness[i], X, y, linear_scaling)
+                    else:
+                        evaluate_individual(to_leave[i], to_edit[i], fitness[i], X, y, linear_scaling)
 
-                        # Get MSE
-                        fitness_second = fitness[i][0]
+                    # Get MSE
+                    fitness_second = fitness[i][0]
 
-                        # reset to original value
-                        to_edit[i, j] = original_value
+                    # reset to original value
+                    to_edit[i, j] = original_value
 
-                        # Calculate the gradient using finite differences
-                        multiplier = 2 if finite_difference_method == 'central' else 1
-                        if not math.isinf(fitness_first) and not math.isinf(fitness_second):
-                            gradients[i, j] = ((fitness_first - fitness_second) / (multiplier * epsilon))
+                    # Calculate the gradient using finite differences
+                    multiplier = 2 if finite_difference_method == 'central' else 1
+                    if not math.isinf(fitness_first) and not math.isinf(fitness_second):
+                        gradients[i, j] = ((fitness_first - fitness_second) / (multiplier * epsilon))
             return gradients
 
         temp_trial_structs = np.zeros_like(trial_structures)
