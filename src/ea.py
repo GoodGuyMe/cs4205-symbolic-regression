@@ -39,7 +39,7 @@ def DEPGEP(
     return_value: Literal["mse_elite", "non_dominated"] | None = None,
     initial_learning_rate: float = 0.01,
     learning_rate_decay: float = 0.99,
-    epsilon: float = 0.00001,
+    epsilon: float = 0.001,
     structure_search: str = 'none',  # 'none' or 'forward' or 'central' or 'backward'
     constants_search: str = 'central',  # 'none' or 'forward' or 'central' or 'backward'
     search_perc: int = 10,
@@ -90,6 +90,7 @@ def DEPGEP(
         search_perc=search_perc,
         consts_diff=consts_diff,
         search_threshold=search_threshold,
+        num_operators = len(operators)
     )
 
     if multi_objective:
@@ -236,6 +237,7 @@ def get_compiled_functions(
     search_perc: int,
     consts_diff: bool,
     search_threshold: int,
+    num_operators: int
 ):
     """This function aims to avoid repeated jit compilations by caching"""
     evaluate_individual, evaluate_population, to_sympy = get_fitness_and_parser(
@@ -261,7 +263,8 @@ def get_compiled_functions(
         constants_search=constants_search,
         search_perc=search_perc,
         consts_diff=consts_diff,
-        search_threshold=search_threshold
+        search_threshold=search_threshold,
+        num_operators=num_operators
     )
 
     return (
@@ -283,7 +286,7 @@ if __name__ == "__main__":
     X, y = synthetic_problem(ground_truth, random_state=42)
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
 
-    seed = 12341234
+    seed = None
 
     so_front = DEPGEP(
         X=X_train,

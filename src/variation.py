@@ -20,25 +20,41 @@ def get_variation_fn(
         search_perc: int,
         consts_diff: bool,
         search_threshold: int,
+        num_operators: int
 ):
-    @nb.jit((
-            nty.Array(nty.float32, 2, "C"),
-            nty.Array(nty.float32, 2, "C"),
-            nty.Array(nty.float32, 2, "C"),
-            nty.Array(nty.float32, 2, "C"),
-            nty.Array(nty.float32, 2, "C"),
-            nty.Array(nty.float32, 2, "C"),
-            nty.Array(nty.float32, 2, "C", readonly=True),
-            nty.Array(nty.float32, 1, "C", readonly=True),
-            nb.typeof(np.random.Generator(np.random.Philox())),
-            nty.float32,
-            nty.float32
-    ), nopython=True, nogil=True, fastmath={"nsz", "arcp", "contract", "afn"}, error_model="numpy", cache=False,
-        parallel=False)
+    # @nb.jit((
+    #         nty.Array(nty.float32, 2, "C"),
+    #         nty.Array(nty.float32, 2, "C"),
+    #         nty.Array(nty.float32, 2, "C"),
+    #         nty.Array(nty.float32, 2, "C"),
+    #         nty.Array(nty.float32, 2, "C"),
+    #         nty.Array(nty.float32, 2, "C"),
+    #         nty.Array(nty.float32, 2, "C", readonly=True),
+    #         nty.Array(nty.float32, 1, "C", readonly=True),
+    #         nb.typeof(np.random.Generator(np.random.Philox())),
+    #         nty.float32,
+    #         nty.float32
+    # ), nopython=True, nogil=True, fastmath={"nsz", "arcp", "contract", "afn"}, error_model="numpy", cache=False,
+    #     parallel=False)
     def perform_variation(structures, constants, fitness, trial_structures, trial_constants, trial_fitness, X, y, rng,
                           prev_best_fit, learning_rate):
         """Performs a variation step and returns the number of fitness evaluations performed."""
         iteration = 0
+
+        def check_if_constants_used(structure):
+            for struct in structure:
+                op = int(abs(struct))
+                if op >= num_operators:
+                    op -= num_operators
+                    if op >= X.shape[1]:
+                        # print("CONSTANT")
+                        return True
+                #     else:
+                #         print("X")
+                # else:
+                #     print("OPERATOR")
+            print("NO CONSTANT")
+            return False
 
         def update_parameters(param, grad, temp_param, lr):
             for i in range(param.shape[0]):
@@ -50,46 +66,48 @@ def get_variation_fn(
             for i in best_idxs:
                 for j in range(to_edit.shape[1]):
                     # Perturb the structure/constants positively and negatively
-                    original_value = to_edit[i, j]
+                    if not edit_structs and check_if_constants_used(to_leave[i]):
+                        original_value = to_edit[i, j]
 
-                    # f'(x) = 1/h * (f(x + h) - f(x)) : forward difference method
-                    # f'(x) = 1/h * (f(x) - f(x - h)) : backward difference method
-                    # f'(x) = 1/(2h) * (f(x + h) - f(x - h)) : central difference method
+                        # f'(x) = 1/h * (f(x + h) - f(x)) : forward difference method
+                        # f'(x) = 1/h * (f(x) - f(x - h)) : backward difference method
+                        # f'(x) = 1/(2h) * (f(x + h) - f(x - h)) : central difference method
 
-                    # compute first evaluation
-                    if finite_difference_method == 'forward' or finite_difference_method == 'central':
-                        to_edit[i, j] = original_value + epsilon
+                        # compute first evaluation
+                        if finite_difference_method == 'forward' or finite_difference_method == 'central':
+                            to_edit[i, j] = original_value + epsilon
 
-                    if edit_structs:
-                        evaluate_individual(to_edit[i], to_leave[i], fitness[i], X, y, linear_scaling)
-                    else:
-                        evaluate_individual(to_leave[i], to_edit[i], fitness[i], X, y, linear_scaling)
+                        if edit_structs:
+                            evaluate_individual(to_edit[i], to_leave[i], fitness[i], X, y, linear_scaling)
+                        else:
 
-                    # Get MSE
-                    fitness_first = fitness[i][0]
+                            evaluate_individual(to_leave[i], to_edit[i], fitness[i], X, y, linear_scaling)
 
-                    # reset to original value
-                    to_edit[i, j] = original_value
+                        # Get MSE
+                        fitness_first = fitness[i][0]
 
-                    # compute second evaluation
-                    if finite_difference_method == 'backward' or finite_difference_method == 'central':
-                        to_edit[i, j] = original_value - epsilon
+                        # reset to original value
+                        to_edit[i, j] = original_value
 
-                    if edit_structs:
-                        evaluate_individual(to_edit[i], to_leave[i], fitness[i], X, y, linear_scaling)
-                    else:
-                        evaluate_individual(to_leave[i], to_edit[i], fitness[i], X, y, linear_scaling)
+                        # compute second evaluation
+                        if finite_difference_method == 'backward' or finite_difference_method == 'central':
+                            to_edit[i, j] = original_value - epsilon
 
-                    # Get MSE
-                    fitness_second = fitness[i][0]
+                        if edit_structs:
+                            evaluate_individual(to_edit[i], to_leave[i], fitness[i], X, y, linear_scaling)
+                        else:
+                            evaluate_individual(to_leave[i], to_edit[i], fitness[i], X, y, linear_scaling)
 
-                    # reset to original value
-                    to_edit[i, j] = original_value
+                        # Get MSE
+                        fitness_second = fitness[i][0]
 
-                    # Calculate the gradient using finite differences
-                    multiplier = 2 if finite_difference_method == 'central' else 1
-                    if not math.isinf(fitness_first) and not math.isinf(fitness_second):
-                        gradients[i, j] = ((fitness_first - fitness_second) / (multiplier * epsilon))
+                        # reset to original value
+                        to_edit[i, j] = original_value
+
+                        # Calculate the gradient using finite differences
+                        multiplier = 2 if finite_difference_method == 'central' else 1
+                        if not math.isinf(fitness_first) and not math.isinf(fitness_second):
+                            gradients[i, j] = ((fitness_first - fitness_second) / (multiplier * epsilon))
             return gradients
 
         temp_trial_structs = np.zeros_like(trial_structures)
@@ -156,6 +174,8 @@ def get_variation_fn(
         if constants_search != 'none' and apply_local_search:
             consts_grad = finite_differencing(X, constants_search, temp_trial_fit, temp_trial_consts,
                                               temp_trial_structs, y, False, best_indices)
+
+        ############################################ UPDATE ################################################
 
         # update the parameters
         update_parameters(trial_structures, structs_grad, temp_trial_structs, learning_rate)
