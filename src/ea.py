@@ -90,6 +90,7 @@ def DEPGEP(
         search_perc=search_perc,
         consts_diff=consts_diff,
         search_threshold=search_threshold,
+        num_operators = len(operators)
     )
 
     if multi_objective:
@@ -236,6 +237,7 @@ def get_compiled_functions(
     search_perc: int,
     consts_diff: bool,
     search_threshold: int,
+    num_operators: int
 ):
     """This function aims to avoid repeated jit compilations by caching"""
     evaluate_individual, evaluate_population, to_sympy = get_fitness_and_parser(
@@ -261,7 +263,8 @@ def get_compiled_functions(
         constants_search=constants_search,
         search_perc=search_perc,
         consts_diff=consts_diff,
-        search_threshold=search_threshold
+        search_threshold=search_threshold,
+        num_operators=num_operators
     )
 
     return (

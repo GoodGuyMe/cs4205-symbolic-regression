@@ -20,6 +20,7 @@ def get_variation_fn(
         search_perc: int,
         consts_diff: bool,
         search_threshold: int,
+        num_operators: int
 ):
     @nb.jit((
             nty.Array(nty.float32, 2, "C"),
@@ -40,6 +41,16 @@ def get_variation_fn(
         """Performs a variation step and returns the number of fitness evaluations performed."""
         iteration = 0
 
+        def get_constants_used(structure):
+            consts_used = []
+            for struct in structure:
+                op = int(abs(struct))
+                if op >= (num_operators + X.shape[1]):
+                    op -= num_operators + X.shape[1]
+                    consts_used.append(op)
+            # print(consts_used)
+            return consts_used
+
         def update_parameters(param, grad, temp_param, lr):
             for i in range(param.shape[0]):
                 for j in range(param.shape[1]):
@@ -48,7 +59,12 @@ def get_variation_fn(
         def finite_differencing(X, finite_difference_method, fitness, to_edit, to_leave, y, edit_structs, best_idxs):
             gradients = np.zeros_like(to_edit)
             for i in best_idxs:
-                for j in range(to_edit.shape[1]):
+                to_edit_used = []
+                if not edit_structs:
+                    to_edit_used = get_constants_used(to_leave[i])
+                else:
+                    to_edit_used = to_edit.shape[1]
+                for j in to_edit_used:
                     # Perturb the structure/constants positively and negatively
                     original_value = to_edit[i, j]
 
@@ -63,6 +79,7 @@ def get_variation_fn(
                     if edit_structs:
                         evaluate_individual(to_edit[i], to_leave[i], fitness[i], X, y, linear_scaling)
                     else:
+
                         evaluate_individual(to_leave[i], to_edit[i], fitness[i], X, y, linear_scaling)
 
                     # Get MSE
@@ -156,6 +173,8 @@ def get_variation_fn(
         if constants_search != 'none' and apply_local_search:
             consts_grad = finite_differencing(X, constants_search, temp_trial_fit, temp_trial_consts,
                                               temp_trial_structs, y, False, best_indices)
+
+        ############################################ UPDATE ################################################
 
         # update the parameters
         update_parameters(trial_structures, structs_grad, temp_trial_structs, learning_rate)

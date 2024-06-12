@@ -6,7 +6,7 @@ def init_grow(structures, constants, operators, num_inputs, rng):
     """Basic grow initialisation for the prefix notation representation."""
 
     op_indices = [op_id for op_id,_,_ in OPERATORS]
-    
+
     def grow_prefix():
         """Grow initialisation, but with a prefix notation representation"""
         if rng.random() < 0.5: # 50% chance of getting a terminal
