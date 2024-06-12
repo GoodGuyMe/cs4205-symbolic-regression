@@ -43,7 +43,7 @@ def get_variation_fn(
         def update_parameters(param, grad, temp_param, lr):
             for i in range(param.shape[0]):
                 for j in range(param.shape[1]):
-                    param[i, j] = temp_param[i, j] + (grad[i, j] * lr)
+                    param[i, j] = temp_param[i, j] - (grad[i, j] * lr)
 
         def finite_differencing(X, finite_difference_method, fitness, to_edit, to_leave, y, edit_structs, best_idxs):
             gradients = np.zeros_like(to_edit)
@@ -124,7 +124,7 @@ def get_variation_fn(
 
             for j in range(constants.shape[1]):
                 # perform crossover on selected index j_rand with proba 1 or with proba p_crossover on other indices
-                if consts_diff and rng.random() < p_crossover or j == j_rand:
+                if (consts_diff and rng.random() < p_crossover or j == j_rand) and False:
                     # as these are constants, no repair is required
                     temp_trial_consts[i, j] = constants[r0, j] + scaling_factor * (
                                 constants[r1, j] - constants[r2, j])
@@ -133,17 +133,17 @@ def get_variation_fn(
 
         ################################ IDENTIFY LOCAL SEARCH CANDIDATES ####################################
 
-        apply_local_search = False
+        apply_local_search = True
         num_solutions = temp_trial_fit.shape[0]
         best_indices = np.arange(num_solutions)
         if constants_search != 'none':
-            evaluate_population(temp_trial_structs, temp_trial_consts, temp_trial_fit, X, y, linear_scaling)
+            # evaluate_population(temp_trial_structs, temp_trial_consts, temp_trial_fit, X, y, linear_scaling)
             # Sort the population based on fitness proceed with local search for the best search_perc solutions
-            best_indices = np.argsort(temp_trial_fit[:, 0])[:min(num_solutions, int(np.ceil(num_solutions * search_perc / 100)))]
+            # best_indices = np.argsort(temp_trial_fit[:, 0])[:min(num_solutions, int(np.ceil(num_solutions * search_perc / 100)))]
             # Only apply local search when the search_threshold is exceeded
 
             new_best_fit = temp_trial_fit[temp_trial_fit[:, 0].argmin(), 0]
-            apply_local_search = (new_best_fit - prev_best_fit) / prev_best_fit * 100 < -search_threshold
+            # apply_local_search = (new_best_fit - prev_best_fit) / prev_best_fit * 100 < -search_threshold
 
         ########################################## LOCAL SEARCH ##############################################
 
