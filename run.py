@@ -91,12 +91,27 @@ def run_experiment(
 
 
 if __name__ == "__main__":
+    fewer_operators = ("+", "-", "*", "/", "sin")
+    more_operators = ("+", "-", "*", "/", "sin", "cos", "exp", "log", "sqrt")
+
     logging_and_budget = dict(
-        max_evaluations = int(5e5),
-        max_time_seconds = int(30),
-        log_level = "mse_elite",
-        log_frequency = 100,
-        # quiet = True
+        max_evaluations=None, # int(10e5),
+        max_time_seconds=None, # int(60),
+        log_level="mse_elite",  # ["mse_elite", "non_dominated", "population"]
+        log_frequency=100,
+        max_generations=4000,
+        quiet=True,
+        return_value=None,  # ["mse_elite", "non_dominated"] | None
+    )
+
+    default_settings = dict(
+        population_size=100,
+        max_expression_size=32,
+        num_constants=5,
+        scaling_factor=0.2,
+        p_crossover=0.1,
+        initialisation="random",
+        linear_scaling=False,
     )
 
     def run():
@@ -108,32 +123,140 @@ if __name__ == "__main__":
                     "x0 ** 3 - 0.3 * x0 ** 2 - 0.4 * x0 - 0.6",
                     "0.3 * x0 * sin(2 * pi * x0)",
                     # from https://archive.ics.uci.edu/datasets
-                    "Airfoil",
-                    "Concrete Compressive Strength",
-                    "Energy Cooling",
-                    "Energy Heating",
-                    "Yacht Hydrodynamics",
+                    # "Airfoil",
+                    # "Concrete Compressive Strength",
+                    # "Energy Cooling",
+                    # "Energy Heating",
+                    # "Yacht Hydrodynamics",
                 ],
                 methods=[
                     dict(
-                        name="Fewer Operators",
-                        operators=tuple("+,-,*,/,sin".split(",")),
-                        max_expression_size=32,
-                        num_constants=5,
-                        population_size=100,
+                        name="Adaptive Search (0%)",
+                        operators=fewer_operators,
+                        multi_objective=False,
+                        **default_settings,
+                        initial_learning_rate=0.5,
+                        learning_rate_decay=0.99,
+                        epsilon=0.00001,
+                        structure_search='none',  # 'none' or 'forward' or 'central' or 'backward'
+                        constants_search='central',  # 'none' or 'forward' or 'central' or 'backward'
+                        search_perc=10,
+                        consts_diff=True,
+                        search_threshold=0,
                         **logging_and_budget
                     ),
+
                     dict(
-                        name="More Operators",
-                        operators=tuple("+,-,*,/,sin,cos,exp,log,sqrt".split(",")),
-                        max_expression_size=32,
-                        num_constants=5,
-                        population_size=100,
+                        name="Adaptive Search (10%)",
+                        operators=fewer_operators,
+                        multi_objective=False,
+                        **default_settings,
+                        initial_learning_rate=0.5,
+                        learning_rate_decay=0.99,
+                        epsilon=0.00001,
+                        structure_search='none',  # 'none' or 'forward' or 'central' or 'backward'
+                        constants_search='central',  # 'none' or 'forward' or 'central' or 'backward'
+                        search_perc=10,
+                        consts_diff=True,
+                        search_threshold=10,
                         **logging_and_budget
-                    )
+                    ),
+
+                    dict(
+                        name="Adaptive Search (5%)",
+                        operators=fewer_operators,
+                        multi_objective=False,
+                        **default_settings,
+                        initial_learning_rate=0.5,
+                        learning_rate_decay=0.99,
+                        epsilon=0.00001,
+                        structure_search='none',  # 'none' or 'forward' or 'central' or 'backward'
+                        constants_search='central',  # 'none' or 'forward' or 'central' or 'backward'
+                        search_perc=10,
+                        consts_diff=True,
+                        search_threshold=5,
+                        **logging_and_budget
+                    ),
+
+                    dict(
+                        name="Adaptive Search (20%)",
+                        operators=fewer_operators,
+                        multi_objective=False,
+                        **default_settings,
+                        initial_learning_rate=0.5,
+                        learning_rate_decay=0.99,
+                        epsilon=0.00001,
+                        structure_search='none',  # 'none' or 'forward' or 'central' or 'backward'
+                        constants_search='central',  # 'none' or 'forward' or 'central' or 'backward'
+                        search_perc=10,
+                        consts_diff=True,
+                        search_threshold=20,
+                        **logging_and_budget
+                    ),
+
+                    # dict(
+                    #     name="No Local Search",
+                    #     operators=fewer_operators,
+                    #     multi_objective=False,
+                    #     **default_settings,
+                    #     initial_learning_rate=0.5,
+                    #     learning_rate_decay=0.99,
+                    #     epsilon=0.00001,
+                    #     structure_search='none',  # 'none' or 'forward' or 'central' or 'backward'
+                    #     constants_search='none',  # 'none' or 'forward' or 'central' or 'backward'
+                    #     search_perc=100,
+                    #     consts_diff=True,
+                    #     search_threshold=0,
+                    #     **logging_and_budget
+                    # ),
+                    # dict(
+                    #     name="Local Search (100%)",
+                    #     operators=fewer_operators,
+                    #     multi_objective=False,
+                    #     **default_settings,
+                    #     initial_learning_rate=0.5,
+                    #     learning_rate_decay=0.99,
+                    #     epsilon=0.00001,
+                    #     structure_search='none',  # 'none' or 'forward' or 'central' or 'backward'
+                    #     constants_search='central',  # 'none' or 'forward' or 'central' or 'backward'
+                    #     search_perc=100,
+                    #     consts_diff=True,
+                    #     search_threshold=0,
+                    #     **logging_and_budget
+                    # ),
+                    # dict(
+                    #     name="Elitist Search (10%)",
+                    #     operators=fewer_operators,
+                    #     multi_objective=False,
+                    #     **default_settings,
+                    #     initial_learning_rate=0.5,
+                    #     learning_rate_decay=0.99,
+                    #     epsilon=0.00001,
+                    #     structure_search='none',  # 'none' or 'forward' or 'central' or 'backward'
+                    #     constants_search='central',  # 'none' or 'forward' or 'central' or 'backward'
+                    #     search_perc=10,
+                    #     consts_diff=True,
+                    #     search_threshold=0,
+                    #     **logging_and_budget
+                    # ),
+                    # dict(
+                    #     name="Elitist Search (50%)",
+                    #     operators=fewer_operators,
+                    #     multi_objective=False,
+                    #     **default_settings,
+                    #     initial_learning_rate=0.5,
+                    #     learning_rate_decay=0.99,
+                    #     epsilon=0.00001,
+                    #     structure_search='none',  # 'none' or 'forward' or 'central' or 'backward'
+                    #     constants_search='central',  # 'none' or 'forward' or 'central' or 'backward'
+                    #     search_perc=50,
+                    #     consts_diff=True,
+                    #     search_threshold=0,
+                    #     **logging_and_budget
+                    # ),
                 ],
                 folds=5,
-                repeats=3,
+                repeats=5,
                 # clear_results_path=True
             )
         except KeyboardInterrupt:
