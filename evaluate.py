@@ -33,47 +33,50 @@ def preprocess(input_dirs: list[str] = RESULT_DIRS, output_dir: str = PREPROCESS
         conn.sql(f"COPY results TO '{output_dir}.parquet '(FORMAT PARQUET, COMPRESSION ZSTD, OVERWRITE_OR_IGNORE 1)")
     print("done.")
 
+
 def plot_convergence_graphs(
-        y_variables = ["r2_test"],
-        x_variables = ["generation", "evaluations", "time_seconds"],
+        y_variables=["r2_test"],
+        x_variables=["generation", "evaluations", "time_seconds"],
         num_steps: int = 100,
         input_dir: str = PREPROCESSING_DIR,
         output_dir: str = PLOT_DIR,
         dpi: int = 600
 ):
-    """Plots convergence graphs for each of the `x_variables` and `y_variables` specified with a resolution of `num_steps`.
-    
-    Note: this plot is mostly just to provide a possible starting point, for use in the report it likely is too much information in one figure.
-    """
+    """Plots convergence graphs for each of the `x_variables` and `y_variables` specified with a resolution of `num_steps`."""
     with duckdb.connect(":memory:") as conn:
-        conn.sql(f"CREATE OR REPLACE VIEW results AS SELECT * FROM read_parquet('{input_dir}*.parquet', hive_partitioning = false)")
+        conn.sql(
+            f"CREATE OR REPLACE VIEW results AS SELECT * FROM read_parquet('{input_dir}*.parquet', hive_partitioning = false)")
 
-        methods = sorted([m for m,*_ in conn.sql("SELECT method FROM results GROUP BY ALL ORDER BY method ASC").fetchall()])
-        problems = sorted([p for p,*_ in conn.sql("SELECT problem FROM results GROUP BY ALL ORDER BY problem ASC").fetchall()])
-        
-        for y_var in y_variables:
+        methods = sorted(
+            [m for m, *_ in conn.sql("SELECT method FROM results GROUP BY ALL ORDER BY method ASC").fetchall()])
+        problems = sorted(
+            [p for p, *_ in conn.sql("SELECT problem FROM results GROUP BY ALL ORDER BY problem ASC").fetchall()])
+
+        nrows, ncols = len(y_variables), len(x_variables) * len(problems)
+        fig, axes = plt.subplots(
+            nrows=nrows,
+            ncols=ncols,
+            figsize=(3 * ncols, 3 * nrows + 0.5),
+            gridspec_kw=dict(
+                wspace=0.3,
+                hspace=0.3,
+            ),
+            squeeze=False
+        )
+
+        hues = sns.color_palette(n_colors=len(methods))
+        palette = {m: hues[i] for i, m in enumerate(methods)}
+
+        for k, y_var in enumerate(y_variables):
             progress = tqdm(desc=f"Plotting {y_var}...", total=len(x_variables) * len(problems) * num_steps)
-
-            nrows, ncols = len(x_variables), len(problems)
-            fig, axes = plt.subplots(
-                nrows=nrows,
-                ncols=ncols,
-                figsize=(3 * ncols, 3 * nrows),
-                gridspec_kw=dict(
-                    wspace=0.3,
-                    hspace=0.3,
-                ),
-                squeeze=False
-            )
-            
-            hues = sns.color_palette(n_colors=len(methods))
-            palette = { m:hues[i] for i,m in enumerate(methods) }
             for i, x_var in enumerate(x_variables):
                 for j, problem in enumerate(problems):
-                    ax = axes[i,j]
-                    
+                    ax = axes[k, i * len(problems) + j]
+
                     df = pd.DataFrame()
-                    max_x_value = conn.execute(f"SELECT MAX({x_var}::DOUBLE) FROM results WHERE problem = $1", [problem]).fetchone()[0]
+                    max_x_value = \
+                    conn.execute(f"SELECT MAX({x_var}::DOUBLE) FROM results WHERE problem = $1", [problem]).fetchone()[
+                        0]
                     for x in np.linspace(0, max_x_value, num_steps, endpoint=True):
                         df = pd.concat([df, conn.execute(f"""
                             SELECT
@@ -86,7 +89,7 @@ def plot_convergence_graphs(
                             GROUP BY ALL
                         """, [problem]).df()], ignore_index=True)
                         progress.update()
-                    
+
                     sns.lineplot(
                         df,
                         x=x_var,
@@ -96,32 +99,180 @@ def plot_convergence_graphs(
                         estimator=np.median,
                         errorbar=("pi", 50),
                         err_kws=dict(lw=0),
-                        # estimator=None,
-                        # units="run",
                         legend=False,
                         ax=ax
                     )
 
-                    ax.set_title(problem if i == 0 else "")
+                    ax.set_title(problem if k == 0 else "")
                     ax.set_ylabel(y_var if j == 0 else "")
                     ax.set_xlabel(x_var)
 
+                    line_data = {}
+                    for method in methods:
+                        method_df = df[df['method'] == method]
+                        median_data = method_df.groupby(x_var)[y_var].median().reset_index()
+
+                        line_data[method] = {
+                            'x': median_data[x_var].values,
+                            'y': median_data[y_var].values
+                        }
+
+                    if 'r2' in y_var:
+                        converged = []
+                        for method in methods:
+                            max_y = line_data[method]['y'].max()
+                            min_x = line_data[method]['x'][line_data[method]['y'] >= max_y * 0.99][0]
+                            converged.append(min_x)
+                        threshold = np.max(converged)
+                        ax.set_ylim(0, 1)
+                        ax.set_xlim(0, min(threshold * 1.1, df[x_var].max()))
+
                     if "mse" in y_var:
+                        converged = []
+                        for method in methods:
+                            min_y = line_data[method]['y'].min()
+                            max_x = line_data[method]['x'][line_data[method]['y'] <= min_y * 1.01][0]
+                            converged.append(max_x)
+                        threshold = np.min(converged)
+                        ax.set_xlim(0, min(threshold * 1.1, df[x_var].max()))
                         ax.set_yscale("log")
 
-            fig.legend(
-                labels=methods,
-                handles=[plt.plot([], [], color=palette[m])[0] for m in methods],
-                ncols=len(methods),
-                frameon=False,
-                fancybox=False,
-                loc="lower center",
-                bbox_to_anchor=(0.5, 0.0)
-            )
-            
-            os.makedirs(output_dir, exist_ok=True)
-            fig.savefig(os.path.join(output_dir, f"convergence_{y_var}.pdf"), bbox_inches="tight", dpi=dpi)
-            plt.close(fig)
+        fig.subplots_adjust(bottom=(0.3 / nrows))
+        fig.legend(
+            labels=methods,
+            handles=[plt.plot([], [], color=palette[m])[0] for m in methods],
+            ncols=len(methods),
+            frameon=False,
+            fancybox=False,
+            loc="lower center",
+            bbox_to_anchor=(0.5, 0.0)
+        )
+
+        os.makedirs(output_dir, exist_ok=True)
+        fig.savefig(os.path.join(output_dir, f"convergence_all.png"), bbox_inches="tight", dpi=dpi)
+        plt.close(fig)
+
+#  I am sorry for this comment block we needed to quickly plot multiple metrics in the same graph
+#
+# def plot_convergence_graphs(
+#         y_variables = ["r2_test"],
+#         x_variables = ["generation", "evaluations", "time_seconds"],
+#         num_steps: int = 100,
+#         input_dir: str = PREPROCESSING_DIR,
+#         output_dir: str = PLOT_DIR,
+#         dpi: int = 600
+# ):
+#     """Plots convergence graphs for each of the `x_variables` and `y_variables` specified with a resolution of `num_steps`.
+#
+#     Note: this plot is mostly just to provide a possible starting point, for use in the report it likely is too much information in one figure.
+#     """
+#     with duckdb.connect(":memory:") as conn:
+#         conn.sql(f"CREATE OR REPLACE VIEW results AS SELECT * FROM read_parquet('{input_dir}*.parquet', hive_partitioning = false)")
+#
+#         methods = sorted([m for m,*_ in conn.sql("SELECT method FROM results GROUP BY ALL ORDER BY method ASC").fetchall()])
+#         problems = sorted([p for p,*_ in conn.sql("SELECT problem FROM results GROUP BY ALL ORDER BY problem ASC").fetchall()])
+#
+#         for y_var in y_variables:
+#             progress = tqdm(desc=f"Plotting {y_var}...", total=len(x_variables) * len(problems) * num_steps)
+#
+#             nrows, ncols = len(x_variables), len(problems)
+#             fig, axes = plt.subplots(
+#                 nrows=nrows,
+#                 ncols=ncols,
+#                 figsize=(3 * ncols, 3 * nrows + 0.5),
+#                 gridspec_kw=dict(
+#                     wspace=0.3,
+#                     hspace=0.3,
+#                 ),
+#                 squeeze=False
+#             )
+#
+#             hues = sns.color_palette(n_colors=len(methods))
+#             palette = { m:hues[i] for i,m in enumerate(methods) }
+#             for i, x_var in enumerate(x_variables):
+#                 for j, problem in enumerate(problems):
+#                     ax = axes[i,j]
+#
+#                     df = pd.DataFrame()
+#                     max_x_value = conn.execute(f"SELECT MAX({x_var}::DOUBLE) FROM results WHERE problem = $1", [problem]).fetchone()[0]
+#                     for x in np.linspace(0, max_x_value, num_steps, endpoint=True):
+#                         df = pd.concat([df, conn.execute(f"""
+#                             SELECT
+#                                 method,
+#                                 format('{{}}.{{}}', fold, repeat)::DOUBLE AS run,
+#                                 {x}::DOUBLE AS {x_var},
+#                                 {"MAX" if "r2" in y_var else "MIN"}({y_var}::DOUBLE) AS {y_var}
+#                             FROM results
+#                             WHERE problem = $1 AND {x_var}::DOUBLE <= {x}
+#                             GROUP BY ALL
+#                         """, [problem]).df()], ignore_index=True)
+#                         progress.update()
+#
+#                     sns.lineplot(
+#                         df,
+#                         x=x_var,
+#                         y=y_var,
+#                         hue="method",
+#                         hue_order=methods,
+#                         estimator=np.median,
+#                         errorbar=("pi", 50),
+#                         err_kws=dict(lw=0),
+#                         # estimator=None,
+#                         # units="run",
+#                         legend=False,
+#                         ax=ax
+#                     )
+#
+#                     ax.set_title(problem if i == 0 else "")
+#                     ax.set_ylabel(y_var if j == 0 else "")
+#                     ax.set_xlabel(x_var)
+#
+#                     line_data = {}
+#                     for method in methods:
+#                         method_df = df[df['method'] == method]
+#                         median_data = method_df.groupby(x_var)[y_var].median().reset_index()
+#
+#                         # Store the result in the dictionary
+#                         line_data[method] = {
+#                             'x': median_data[x_var].values,
+#                             'y': median_data[y_var].values
+#                         }
+#
+#                     # Print the line data for each method
+#                     if 'r2' in y_var:
+#                         converged = []
+#                         for method in methods:
+#                             max_y = line_data[method]['y'].max()
+#                             min_x = line_data[method]['x'][line_data[method]['y'] >= max_y * 0.99][0]
+#                             converged.append(min_x)
+#                         threshold = np.max(converged)
+#                         ax.set_xlim(0, min(threshold * 1.1, df[x_var].max()))
+#
+#                     if "mse" in y_var:
+#                         converged = []
+#                         for method in methods:
+#                             min_y = line_data[method]['y'].min()
+#                             max_x = line_data[method]['x'][line_data[method]['y'] <= min_y * 1.01][0]
+#                             converged.append(max_x)
+#                         threshold = np.min(converged)
+#                         ax.set_xlim(0, max(threshold * 1.1, df[x_var].max()))
+#                         ax.set_yscale("log")
+#
+#             fig.subplots_adjust(bottom=(0.3 / nrows))
+#             if 'mse' not in y_var:
+#                 fig.legend(
+#                     labels=methods,
+#                     handles=[plt.plot([], [], color=palette[m])[0] for m in methods],
+#                     ncols=len(methods),
+#                     frameon=False,
+#                     fancybox=False,
+#                     loc="lower center",
+#                     bbox_to_anchor=(0.5, 0.0)
+#                 )
+#
+#             os.makedirs(output_dir, exist_ok=True)
+#             fig.savefig(os.path.join(output_dir, f"convergence_{y_var}.png"), bbox_inches="tight", dpi=dpi)
+#             plt.close(fig)
 
 def plot_hypervolume(
     input_dir: str = PREPROCESSING_DIR,
@@ -229,5 +380,8 @@ def plot_hypervolume(
 
 if __name__ == "__main__":
     preprocess(clean=True)
-    plot_convergence_graphs(y_variables=["mse_train", "r2_test"])
-    plot_hypervolume()
+    # What we run in the report
+    plot_convergence_graphs(y_variables=["r2_test", "mse_test"], x_variables=["generation"])
+    # Original call
+    # plot_convergence_graphs(y_variables=["mse_train", "r2_test"])
+    # plot_hypervolume()
