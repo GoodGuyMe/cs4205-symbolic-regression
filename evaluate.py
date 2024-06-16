@@ -33,6 +33,53 @@ def preprocess(input_dirs: list[str] = RESULT_DIRS, output_dir: str = PREPROCESS
         conn.sql(f"COPY results TO '{output_dir}.parquet '(FORMAT PARQUET, COMPRESSION ZSTD, OVERWRITE_OR_IGNORE 1)")
     print("done.")
 
+def export_mse_r2(
+    y_variables=["mse_test", "r2_test"],
+    input_dir: str = PREPROCESSING_DIR,
+    output_dir: str = PLOT_DIR,
+):
+    with duckdb.connect(":memory:") as conn:
+        conn.sql(
+            f"CREATE OR REPLACE VIEW results AS SELECT * FROM read_parquet('{input_dir}*.parquet', hive_partitioning = false)")
+        methods = sorted(
+            [m for m, *_ in conn.sql("SELECT method FROM results GROUP BY ALL ORDER BY method ASC").fetchall()])
+        problems = sorted(
+            [p for p, *_ in conn.sql("SELECT problem FROM results GROUP BY ALL ORDER BY problem ASC").fetchall()])
+
+        for y_var in y_variables:
+            final_data = []
+
+            for problem in problems:
+                max_generation = \
+                conn.execute("SELECT MAX(generation::DOUBLE) FROM results WHERE problem = $1", [problem]).fetchone()[0]
+                df = conn.execute(f"""
+                           SELECT
+                               method,
+                               fold,
+                               repeat,
+                               generation::DOUBLE AS generation, 
+                               {y_var}::DOUBLE AS {y_var}
+                           FROM results
+                           WHERE problem = $1 AND generation::DOUBLE = $2
+                       """, [problem, max_generation]).df()
+
+                # Replace inf and -inf with NaN
+                df.replace([np.inf, -np.inf], np.nan, inplace=True)
+
+                final_results = df.groupby('method').agg(
+                    mean=(y_var, 'mean'),
+                    std=(y_var, 'std')
+                ).reset_index()
+
+                final_results['problem'] = problem
+
+                final_data.append(final_results)
+
+            final_data = pd.concat(final_data)
+
+            output_filename = f"final_{y_var}_results.csv"
+            final_data.to_csv(os.path.join(output_dir, output_filename), index=False)
+
 def plot_convergence_graphs(
         y_variables = ["r2_test"],
         x_variables = ["generation", "evaluations", "time_seconds"],
@@ -122,6 +169,7 @@ def plot_convergence_graphs(
             os.makedirs(output_dir, exist_ok=True)
             fig.savefig(os.path.join(output_dir, f"convergence_{y_var}.pdf"), bbox_inches="tight", dpi=dpi)
             plt.close(fig)
+
 
 def plot_hypervolume(
     input_dir: str = PREPROCESSING_DIR,
@@ -227,7 +275,10 @@ def plot_hypervolume(
         )
         plt.close(g.figure)
 
+
+
+
 if __name__ == "__main__":
     preprocess(clean=True)
-    plot_convergence_graphs(y_variables=["mse_train", "r2_test"])
-    plot_hypervolume()
+    export_mse_r2(y_variables=["mse_test", "r2_test"])
+    # plot_hypervolume()

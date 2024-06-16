@@ -54,7 +54,7 @@ def get_variation_fn(
         def update_parameters(param, grad, temp_param, lr):
             for i in range(param.shape[0]):
                 for j in range(param.shape[1]):
-                    param[i, j] = temp_param[i, j] + (grad[i, j] * lr)
+                    param[i, j] = temp_param[i, j] - (grad[i, j] * lr)
 
         def finite_differencing(X, finite_difference_method, fitness, to_edit, to_leave, y, edit_structs, best_idxs):
             gradients = np.zeros_like(to_edit)
